@@ -1,133 +1,101 @@
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.util.Scanner;
-import java.util.Stack;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 
-public class Main {
+class Calculator extends JFrame {
 
-    private static String[] op = { "+", "-", "*", "/" };// Operation set
-    public static void main(String[] args)
-    {
-        String res="";
-        Scanner scanner = new Scanner(System.in);
-        System.out.print("请输入一个整数：");
-        int num = scanner.nextInt();
-        while (num>=1)
-        {
-            String question = MakeFormula();
-            System.out.println(question);
-            String ret = Solve(question);
-            System.out.println(ret);
-            res+=(question+"\n"+ret+"\n");
-            num--;
+    private JTextField inputField;
+    private double num1 = 0, num2 = 0, result = 0;
+    private String operator = "";
+
+    public Calculator() {
+        super("Calculator");
+
+        // Create GUI components
+        JPanel mainPanel = new JPanel(new BorderLayout());
+        inputField = new JTextField(10);
+        inputField.setEditable(false);
+        mainPanel.add(inputField, BorderLayout.NORTH);
+
+        JPanel buttonPanel = new JPanel(new GridLayout(4, 4, 5, 5));
+        String[] buttonLabels = {
+                "7", "8", "9", "/",
+                "4", "5", "6", "*",
+                "1", "2", "3", "-",
+                "0", ".", "=", "+"
+        };
+        for (String buttonLabel : buttonLabels) {
+            JButton button = new JButton(buttonLabel);
+            button.addActionListener(new CalculatorListener());
+            buttonPanel.add(button);
         }
+        mainPanel.add(buttonPanel, BorderLayout.CENTER);
 
-        try {
-            BufferedWriter writer = null;
-            try {
-                writer = new BufferedWriter(new FileWriter("subject.txt"));
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-            writer.write(res);
-            writer.close();
-            System.out.println("字符串已成功写入文件。");
-        } catch (IOException e) {
-            System.out.println("写入文件时出错：" + e.getMessage());
-        }
-
+        // Set frame properties
+        setContentPane(mainPanel);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        pack();
+        setLocationRelativeTo(null);
+        setResizable(false);
+        setVisible(true);
     }
 
-    public static String MakeFormula(){
-        StringBuilder build = new StringBuilder();
-        int count = (int) (Math.random() * 2) + 1; // generate random count
-        int start = 0;
-        int number1 = (int) (Math.random() * 99) + 2;
-        build.append(number1);
-        while (start <= count){
-            int operation = (int) (Math.random() * 3); // generate operator
-            int number2 = (int) (Math.random() * 99) + 2;
-            build.append(op[operation]).append(number2);
-            start ++;
-        }
-        return build.toString();
-    }
+    private class CalculatorListener implements ActionListener {
+        public void actionPerformed(ActionEvent e) {
+            String buttonLabel = e.getActionCommand();
 
-    public static String Solve(String formula) {
-        // Check if the formula is null or empty
-        if (formula == null || formula.isEmpty()) {
-            throw new IllegalArgumentException("Formula cannot be null or empty");
-        }
-        Stack<String> tempStack = new Stack<>();
-        Stack<Character> operatorStack = new Stack<>();
-        int len = formula.length();
-        int k = 0;
-        StringBuilder sb = new StringBuilder(); // Use a StringBuilder to append characters
-        for (int j = -1; j < len - 1; j++) {
-            char formulaChar = formula.charAt(j + 1);
-            if (j == len - 2 || formulaChar == '+' || formulaChar == '-' || formulaChar == '/' || formulaChar == '*') {
-                if (j == len - 2) {
-                    sb.append(formulaChar); // Append the last character
-                    tempStack.push(sb.toString()); // Push the last operand
-                } else {
-                    if (k < j) {
-                        tempStack.push(sb.toString()); // Push the current operand
-                        sb.setLength(0); // Clear the StringBuilder
+            if (buttonLabel.matches("[0-9]")) { // 数字按钮
+                if (operator.isEmpty()) { // 如果没有操作符，说明是第一个数
+                    num1 = num1 * 10 + Double.parseDouble(buttonLabel);
+                } else { // 否则是第二个数
+                    num2 = num2 * 10 + Double.parseDouble(buttonLabel);
+                }
+                inputField.setText(inputField.getText() + buttonLabel);
+            } else if (buttonLabel.matches("[/,*,-,+]")) { // 操作符按钮
+                if (!operator.isEmpty()) { // 如果已经有操作符了，先计算上一次的结果
+                    calculate();
+                }
+                operator = buttonLabel;
+                inputField.setText(inputField.getText() + buttonLabel);
+            } else if (buttonLabel.equals(".")) { // 小数点按钮
+                if (operator.isEmpty()) { // 如果没有操作符，说明是第一个数
+                    if (!inputField.getText().contains(".")) {
+                        inputField.setText(inputField.getText() + ".");
                     }
-                    if (operatorStack.empty()) {
-                        operatorStack.push(formulaChar);
-                    } else {
-                        char stackChar = operatorStack.peek();
-                        if ((stackChar == '+' || stackChar == '-')
-                                && (formulaChar == '*' || formulaChar == '/')) {
-                            operatorStack.push(formulaChar);
-                        } else {
-                            tempStack.push(operatorStack.pop().toString());
-                            operatorStack.push(formulaChar);
-                        }
+                } else { // 否则是第二个数
+                    if (!inputField.getText().substring(inputField.getText().lastIndexOf(operator)).contains(".")) {
+                        inputField.setText(inputField.getText() + ".");
                     }
                 }
-                k = j + 2;
-            } else {
-                // Check if the character is valid
-                if (Character.isDigit(formulaChar) || formulaChar == '.') {
-                    sb.append(formulaChar); // Append the character to the StringBuilder
-                } else {
-                    throw new IllegalArgumentException("Formula contains invalid character: " + formulaChar);
-                }
+            } else if (buttonLabel.equals("=")) { // 等号按钮
+                calculate();
+                operator = "";
             }
         }
-        while (!operatorStack.empty()) {
-            tempStack.push(operatorStack.pop().toString());
-        }
-        Stack<Long> calcStack = new Stack<>();
-        for (String peekChar : tempStack) {
-            switch (peekChar) { // Use a switch statement to check for different operators
-                case "+":
-                    calcStack.push(calcStack.pop() + calcStack.pop());
-                    break;
-                case "-":
-                    long a1 = calcStack.pop();
-                    long b1 = calcStack.pop();
-                    calcStack.push(b1 - a1);
+
+        private void calculate() {
+            switch (operator) {
+                case "/":
+                    result = num1 / num2;
                     break;
                 case "*":
-                    calcStack.push(calcStack.pop() * calcStack.pop());
+                    result = num1 * num2;
                     break;
-                case "/":
-                    long a2 = calcStack.pop();
-                    long b2 = calcStack.pop();
-                    // Check if the divisor is zero
-                    if (a2 == 0) {
-                        throw new ArithmeticException("Formula involves division by zero");
-                    }
-                    calcStack.push(b2 / a2);
+                case "-":
+                    result = num1 - num2;
                     break;
-                default:
-                    calcStack.push(Long.parseLong(peekChar));
+                case "+":
+                    result = num1 + num2;
+                    break;
             }
+            inputField.setText(String.valueOf(result));
+            num1 = result;
+            num2 = 0;
         }
-        return formula+" = "+calcStack.pop().toString(); // Return the final result as a string
+    }
+
+    public static void main(String[] args) {
+        new Calculator();
     }
 }
